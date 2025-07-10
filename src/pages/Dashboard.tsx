@@ -37,6 +37,9 @@ const Dashboard = () => {
     );
   }
 
+  const isManager = ["Super Administrador", "Manager"].includes(role || "");
+  const isAdmin = role === "Super Administrador";
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8">
       <div className="max-w-4xl mx-auto">
@@ -74,37 +77,38 @@ const Dashboard = () => {
             </Card>
           </Link>
 
-          {role === "Super Administrador" && (
-            <>
-              <Link to="/manager/dashboard">
-                <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      Panel de Manager <ArrowRight className="h-5 w-5" />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Gestiona las solicitudes de tu equipo.
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-              <Link to="/admin/dashboard" className="md:col-span-2">
-                <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-primary/50">
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center text-primary">
-                      Panel de Administración <Shield className="h-5 w-5" />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Gestiona políticas, usuarios y reportes de toda la empresa.
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            </>
+          {isManager && (
+            <Link to="/manager/dashboard">
+              <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <CardHeader>
+                  <CardTitle className="flex justify-between items-center">
+                    Panel de Manager <ArrowRight className="h-5 w-5" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Gestiona las solicitudes de tu equipo.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
+
+          {isAdmin && (
+            <Link to="/admin/dashboard" className="md:col-span-2">
+              <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-primary/50">
+                <CardHeader>
+                  <CardTitle className="flex justify-between items-center text-primary">
+                    Panel de Administración <Shield className="h-5 w-5" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Gestiona políticas, usuarios y reportes de toda la empresa.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           )}
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AllRequests } from "@/components/admin/AllRequests";
 import { PolicyManager } from "@/components/admin/PolicyManager";
+import { UserManager } from "@/components/admin/UserManager";
 
 const AdminDashboard = () => {
   return (
@@ -11,19 +12,23 @@ const AdminDashboard = () => {
             Panel de Administración
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 mt-1">
-            Gestiona las ausencias y políticas de toda la empresa.
+            Gestiona las ausencias, políticas y usuarios de toda la empresa.
           </p>
         </header>
         <Tabs defaultValue="all-requests">
-          <TabsList className="grid w-full grid-cols-2 sm:w-[400px]">
-            <TabsTrigger value="all-requests">Todas las Solicitudes</TabsTrigger>
-            <TabsTrigger value="policies">Gestionar Políticas</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 sm:w-[600px]">
+            <TabsTrigger value="all-requests">Solicitudes</TabsTrigger>
+            <TabsTrigger value="policies">Políticas</TabsTrigger>
+            <TabsTrigger value="users">Usuarios</TabsTrigger>
           </TabsList>
           <TabsContent value="all-requests">
             <AllRequests />
           </TabsContent>
           <TabsContent value="policies">
             <PolicyManager />
+          </TabsContent>
+          <TabsContent value="users">
+            <UserManager />
           </TabsContent>
         </Tabs>
       </div>
