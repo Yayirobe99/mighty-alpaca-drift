@@ -5,6 +5,7 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,13 +39,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-
-// Mock data for policies
-const timeOffPolicies = [
-  { id: "policy_vacation", name: "Vacaciones Anuales" },
-  { id: "policy_sick", name: "Día por Enfermedad" },
-  { id: "policy_wfh", name: "Trabajo desde Casa (WFH)" },
-];
+import { supabase } from "@/lib/supabase";
+import { showError, showSuccess } from "@/utils/toast";
 
 // Schema definition
 const formSchema = z.object({
@@ -56,16 +52,37 @@ const formSchema = z.object({
   }),
   dayPortion: z.enum(["FULL_DAY", "AM", "PM"]).optional(),
   reason: z.string().optional(),
+}).refine(data => {
+    if (data.requestType === 'MULTI_DAY') {
+        return !!data.dateRange.to;
+    }
+    return true;
+}, {
+    message: "La fecha de fin es obligatoria para varios días.",
+    path: ["dateRange"],
 });
+
+const fetchPolicies = async () => {
+  const { data, error } = await supabase.from("time_off_policies").select("id, policy_name");
+  if (error) throw new Error(error.message);
+  return data;
+};
 
 export function TimeOffRequestForm() {
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState(1);
+  const queryClient = useQueryClient();
+
+  const { data: timeOffPolicies, isLoading: isLoadingPolicies } = useQuery({
+    queryKey: ["timeOffPolicies"],
+    queryFn: fetchPolicies,
+  });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       requestType: "SINGLE_DAY",
+      dayPortion: "FULL_DAY",
       reason: "",
     },
   });
@@ -73,10 +90,10 @@ export function TimeOffRequestForm() {
   const requestType = form.watch("requestType");
 
   const handleNextStep = async () => {
-    let fieldsToValidate: (keyof z.infer<typeof formSchema> | "dateRange.from")[] = [];
+    let fieldsToValidate: (keyof z.infer<typeof formSchema> | "dateRange" | "dateRange.from")[] = [];
     if (step === 1) fieldsToValidate = ["policyId"];
     if (step === 2) fieldsToValidate = ["requestType"];
-    if (step === 3) fieldsToValidate = ["dateRange.from"];
+    if (step === 3) fieldsToValidate = ["dateRange"];
     
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
@@ -88,14 +105,32 @@ export function TimeOffRequestForm() {
     setStep(step - 1);
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("Form submitted:", values);
-    toast.success("Solicitud enviada con éxito", {
-      description: `Tu solicitud de ${values.requestType === 'SINGLE_DAY' ? 'un día' : 'varios días'} ha sido registrada.`,
-    });
-    setOpen(false);
-    form.reset({ requestType: "SINGLE_DAY", reason: "" });
-    setStep(1);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    const { policyId, requestType, dateRange, dayPortion, reason } = values;
+    
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const requestData = {
+      policy_id: policyId,
+      request_type: requestType,
+      start_date: format(dateRange.from, "yyyy-MM-dd"),
+      end_date: dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
+      day_portion: requestType === 'SINGLE_DAY' ? dayPortion : undefined,
+      reason: reason,
+      employee_id: user?.id, // This will be null if not logged in
+    };
+
+    const { error } = await supabase.from("time_off_requests").insert(requestData);
+
+    if (error) {
+      showError("Error al enviar la solicitud: " + error.message);
+    } else {
+      showSuccess("Solicitud enviada con éxito.");
+      queryClient.invalidateQueries({ queryKey: ["timeOffRequests"] });
+      setOpen(false);
+      form.reset({ requestType: "SINGLE_DAY", dayPortion: "FULL_DAY", reason: "" });
+      setStep(1);
+    }
   }
 
   const renderStepContent = () => {
@@ -110,14 +145,14 @@ export function TimeOffRequestForm() {
                 <FormLabel>Paso 1: Tipo de Ausencia</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una política de ausencia" />
+                    <SelectTrigger disabled={isLoadingPolicies}>
+                      <SelectValue placeholder={isLoadingPolicies ? "Cargando políticas..." : "Selecciona una política"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {timeOffPolicies.map((policy) => (
+                    {timeOffPolicies?.map((policy) => (
                       <SelectItem key={policy.id} value={policy.id}>
-                        {policy.name}
+                        {policy.policy_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -350,7 +385,7 @@ export function TimeOffRequestForm() {
             </div>
             <DialogFooter className="flex justify-between w-full">
               {step > 1 && <Button type="button" variant="outline" onClick={handlePrevStep}>Anterior</Button>}
-              <div/>
+              <div className="flex-grow" />
               {step < 4 && <Button type="button" onClick={handleNextStep}>Siguiente</Button>}
               {step === 4 && <Button type="submit">Enviar Solicitud</Button>}
             </DialogFooter>
