@@ -9,6 +9,7 @@ import TimeOff from "./pages/TimeOff";
 import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
 import ManagerDashboard from "./pages/ManagerDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/time-off" element={<TimeOff />} />
           <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Shield } from "lucide-react";
 
 const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -75,20 +75,36 @@ const Dashboard = () => {
           </Link>
 
           {role === "Super Administrador" && (
-             <Link to="/manager/dashboard">
-               <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-                 <CardHeader>
-                   <CardTitle className="flex justify-between items-center">
-                     Panel de Manager <ArrowRight className="h-5 w-5" />
-                   </CardTitle>
-                 </CardHeader>
-                 <CardContent>
-                   <p className="text-gray-600 dark:text-gray-400">
-                     Gestiona las solicitudes de tu equipo.
-                   </p>
-                 </CardContent>
-               </Card>
-             </Link>
+            <>
+              <Link to="/manager/dashboard">
+                <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center">
+                      Panel de Manager <ArrowRight className="h-5 w-5" />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Gestiona las solicitudes de tu equipo.
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+              <Link to="/admin/dashboard" className="md:col-span-2">
+                <Card className="hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors border-primary/50">
+                  <CardHeader>
+                    <CardTitle className="flex justify-between items-center text-primary">
+                      Panel de Administración <Shield className="h-5 w-5" />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Gestiona políticas, usuarios y reportes de toda la empresa.
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            </>
           )}
         </div>
       </div>
