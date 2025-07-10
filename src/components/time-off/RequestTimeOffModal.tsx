@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -29,22 +29,51 @@ import { cn } from "@/lib/utils";
 import { format, differenceInCalendarDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { showSuccess } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
+import { supabase } from "@/integrations/supabase/client";
 import type { DateRange } from "react-day-picker";
 
 type Step = 1 | 2 | 3 | 4;
 type DayType = "single" | "multiple";
+type Policy = {
+  id: string;
+  policy_name: string;
+};
 
-export function RequestTimeOffModal() {
+export function RequestTimeOffModal({
+  onRequestSubmitted,
+}: {
+  onRequestSubmitted: () => void;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState<Step>(1);
   const [policy, setPolicy] = useState<string>("");
+  const [policies, setPolicies] = useState<Policy[]>([]);
   const [dayType, setDayType] = useState<DayType | null>(null);
   const [singleDate, setSingleDate] = useState<Date | undefined>();
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [duration, setDuration] = useState<string>("1");
   const [schedule, setSchedule] = useState<string | undefined>();
   const [reason, setReason] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchPolicies = async () => {
+      const { data, error } = await supabase
+        .from("time_off_policies")
+        .select("id, policy_name");
+
+      if (error) {
+        console.error("Error fetching policies:", error);
+        showError("No se pudieron cargar las políticas de ausencia.");
+      } else {
+        setPolicies(data);
+      }
+    };
+    fetchPolicies();
+  }, [isOpen]);
 
   const resetState = () => {
     setStep(1);
@@ -55,31 +84,75 @@ export function RequestTimeOffModal() {
     setDuration("1");
     setSchedule(undefined);
     setReason("");
+    setIsSubmitting(false);
   };
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      resetState();
+      setTimeout(resetState, 300); // Delay reset to allow for closing animation
     }
   };
 
-  const handleSubmit = () => {
-    // Aquí iría la lógica para enviar los datos a un backend.
-    console.log({
-      policy,
-      dayType,
-      singleDate,
-      dateRange,
-      duration,
-      schedule,
-      reason,
-    });
-    showSuccess("¡Solicitud enviada con éxito!");
-    handleOpenChange(false);
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      showError("Debes iniciar sesión para hacer una solicitud.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    let startDate, endDate, totalDays;
+
+    if (dayType === "single") {
+      if (!singleDate) {
+        showError("Por favor, selecciona una fecha.");
+        setIsSubmitting(false);
+        return;
+      }
+      startDate = singleDate;
+      endDate = singleDate;
+      totalDays = parseFloat(duration);
+    } else {
+      if (!dateRange?.from || !dateRange?.to) {
+        showError("Por favor, selecciona un rango de fechas.");
+        setIsSubmitting(false);
+        return;
+      }
+      startDate = dateRange.from;
+      endDate = dateRange.to;
+      totalDays = differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
+    }
+
+    const requestData = {
+      employee_id: user.id,
+      policy_id: policy,
+      start_date: format(startDate, "yyyy-MM-dd"),
+      end_date: format(endDate, "yyyy-MM-dd"),
+      total_days: totalDays,
+      reason: reason,
+      status: "solicitado",
+    };
+
+    const { error } = await supabase
+      .from("time_off_requests")
+      .insert([requestData]);
+
+    if (error) {
+      showError(`Error al enviar la solicitud: ${error.message}`);
+    } else {
+      showSuccess("¡Solicitud enviada con éxito!");
+      handleOpenChange(false);
+      onRequestSubmitted();
+    }
+    setIsSubmitting(false);
   };
 
-  const totalDays =
+  const totalDaysCalculated =
     dateRange?.from && dateRange?.to
       ? differenceInCalendarDays(dateRange.to, dateRange.from) + 1
       : 0;
@@ -111,7 +184,6 @@ export function RequestTimeOffModal() {
         </DialogHeader>
 
         <div className="py-4 space-y-6">
-          {/* Paso 1: Tipo de Ausencia */}
           {step === 1 && (
             <div className="space-y-2">
               <Label htmlFor="policy">Tipo de Ausencia</Label>
@@ -120,16 +192,16 @@ export function RequestTimeOffModal() {
                   <SelectValue placeholder="Selecciona una política" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="vacation">Vacaciones</SelectItem>
-                  <SelectItem value="wfh">Trabajo desde casa (WFH)</SelectItem>
-                  <SelectItem value="sick">Licencia por enfermedad</SelectItem>
-                  <SelectItem value="personal">Día personal</SelectItem>
+                  {policies.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      {p.policy_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           )}
 
-          {/* Paso 2: ¿Cuántos días? */}
           {step === 2 && (
             <div className="space-y-4 text-center">
               <Label>¿Cuántos días necesitas?</Label>
@@ -152,7 +224,6 @@ export function RequestTimeOffModal() {
             </div>
           )}
 
-          {/* Paso 3: Detalles */}
           {step === 3 && dayType === "single" && (
             <div className="space-y-4">
               <div>
@@ -194,7 +265,6 @@ export function RequestTimeOffModal() {
                 >
                   <ToggleGroupItem value="1">Día Completo (1)</ToggleGroupItem>
                   <ToggleGroupItem value="0.5">Medio Día (0.5)</ToggleGroupItem>
-                  <ToggleGroupItem value="custom">Personalizado</ToggleGroupItem>
                 </ToggleGroup>
               </div>
               {parseFloat(duration) < 1 && (
@@ -205,8 +275,8 @@ export function RequestTimeOffModal() {
                       <SelectValue placeholder="Selecciona un horario" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="morning">Mañana (8am - 12pm)</SelectItem>
-                      <SelectItem value="afternoon">Tarde (1pm - 5pm)</SelectItem>
+                      <SelectItem value="morning">Mañana</SelectItem>
+                      <SelectItem value="afternoon">Tarde</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -230,7 +300,10 @@ export function RequestTimeOffModal() {
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
-                          {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                          {format(dateRange.from, "LLL dd, y", {
+                            locale: es,
+                          })}{" "}
+                          -{" "}
                           {format(dateRange.to, "LLL dd, y", { locale: es })}
                         </>
                       ) : (
@@ -250,16 +323,15 @@ export function RequestTimeOffModal() {
                   />
                 </PopoverContent>
               </Popover>
-              {totalDays > 0 && (
+              {totalDaysCalculated > 0 && (
                 <p className="text-sm text-center text-gray-600 dark:text-gray-400">
                   Total de días solicitados:{" "}
-                  <span className="font-bold">{totalDays}</span>
+                  <span className="font-bold">{totalDaysCalculated}</span>
                 </p>
               )}
             </div>
           )}
 
-          {/* Paso 4: Razón */}
           {step === 4 && (
             <div className="space-y-2">
               <Label htmlFor="reason">Razón (Opcional)</Label>
@@ -274,10 +346,16 @@ export function RequestTimeOffModal() {
         </div>
 
         <DialogFooter className="flex justify-between w-full">
-          {step > 1 && (
-            <Button variant="outline" onClick={() => setStep(step - 1 as Step)}>
+          {step > 1 ? (
+            <Button
+              variant="outline"
+              onClick={() => setStep(step - 1 as Step)}
+              disabled={isSubmitting}
+            >
               Anterior
             </Button>
+          ) : (
+            <div />
           )}
           {step < 4 ? (
             <Button
@@ -288,8 +366,12 @@ export function RequestTimeOffModal() {
               Siguiente <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit} className="ml-auto">
-              Enviar Solicitud
+            <Button
+              onClick={handleSubmit}
+              className="ml-auto"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Enviando..." : "Enviar Solicitud"}
             </Button>
           )}
         </DialogFooter>

@@ -1,7 +1,15 @@
 import { RequestTimeOffModal } from "../components/time-off/RequestTimeOffModal";
 import { TimeOffHistory } from "../components/time-off/TimeOffHistory";
+import { useState, useCallback } from "react";
 
 const TimeOff = () => {
+  // Esta clave de estado se utiliza para forzar la recarga del componente TimeOffHistory
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRequestSubmitted = useCallback(() => {
+    setRefreshKey((prevKey) => prevKey + 1);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-8">
       <div className="max-w-7xl mx-auto">
@@ -15,12 +23,12 @@ const TimeOff = () => {
             </p>
           </div>
           <div className="mt-4 sm:mt-0">
-            <RequestTimeOffModal />
+            <RequestTimeOffModal onRequestSubmitted={handleRequestSubmitted} />
           </div>
         </header>
 
         <main>
-          <TimeOffHistory />
+          <TimeOffHistory key={refreshKey} />
         </main>
       </div>
     </div>
