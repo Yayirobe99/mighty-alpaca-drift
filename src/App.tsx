@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import TimeOff from "./pages/TimeOff";
 import Dashboard from "./pages/Dashboard";
 import Register from "./pages/Register";
+import ManagerDashboard from "./pages/ManagerDashboard";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/time-off" element={<TimeOff />} />
+          <Route path="/manager/dashboard" element={<ManagerDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
