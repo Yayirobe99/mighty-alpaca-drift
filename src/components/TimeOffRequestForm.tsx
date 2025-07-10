@@ -2,7 +2,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -38,7 +38,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 
@@ -88,6 +87,7 @@ export function TimeOffRequestForm() {
   });
 
   const requestType = form.watch("requestType");
+  const dateRange = form.watch("dateRange");
 
   const handleNextStep = async () => {
     let fieldsToValidate: (keyof z.infer<typeof formSchema> | "dateRange" | "dateRange.from")[] = [];
@@ -117,7 +117,7 @@ export function TimeOffRequestForm() {
       end_date: dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : undefined,
       day_portion: requestType === 'SINGLE_DAY' ? dayPortion : undefined,
       reason: reason,
-      employee_id: user?.id, // This will be null if not logged in
+      employee_id: user?.id,
     };
 
     const { error } = await supabase.from("time_off_requests").insert(requestData);
@@ -257,30 +257,33 @@ export function TimeOffRequestForm() {
                         <RadioGroup
                           onValueChange={field.onChange}
                           defaultValue={field.value}
-                          className="grid grid-cols-3 gap-4"
+                          className="grid grid-cols-1 gap-4 sm:grid-cols-3"
                         >
                           <FormItem>
                             <FormControl>
                               <RadioGroupItem value="FULL_DAY" id="full_day" className="sr-only" />
                             </FormControl>
-                            <FormLabel htmlFor="full_day" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-sm hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                              Día Completo
+                            <FormLabel htmlFor="full_day" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-sm hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                              <span>Día Completo</span>
+                              <span className="text-xs text-muted-foreground">(1 día)</span>
                             </FormLabel>
                           </FormItem>
                           <FormItem>
                             <FormControl>
                               <RadioGroupItem value="AM" id="am" className="sr-only" />
                             </FormControl>
-                            <FormLabel htmlFor="am" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-sm hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                              Mañana
+                            <FormLabel htmlFor="am" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-sm hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                              <span>Medio Día (AM)</span>
+                              <span className="text-xs text-muted-foreground">(0.5 días)</span>
                             </FormLabel>
                           </FormItem>
                           <FormItem>
                             <FormControl>
                               <RadioGroupItem value="PM" id="pm" className="sr-only" />
                             </FormControl>
-                            <FormLabel htmlFor="pm" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-sm hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
-                              Tarde
+                            <FormLabel htmlFor="pm" className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 text-sm hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                              <span>Medio Día (PM)</span>
+                              <span className="text-xs text-muted-foreground">(0.5 días)</span>
                             </FormLabel>
                           </FormItem>
                         </RadioGroup>
@@ -291,53 +294,60 @@ export function TimeOffRequestForm() {
                 />
               </div>
             ) : (
-              <FormField
-                control={form.control}
-                name="dateRange"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Rango de Fechas</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="date"
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !field.value?.from && "text-muted-foreground"
-                          )}
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value?.from ? (
-                            field.value.to ? (
-                              <>
-                                {format(field.value.from, "LLL dd, y", { locale: es })} -{" "}
-                                {format(field.value.to, "LLL dd, y", { locale: es })}
-                              </>
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="dateRange"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Rango de Fechas</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            id="date"
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !field.value?.from && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value?.from ? (
+                              field.value.to ? (
+                                <>
+                                  {format(field.value.from, "LLL dd, y", { locale: es })} -{" "}
+                                  {format(field.value.to, "LLL dd, y", { locale: es })}
+                                </>
+                              ) : (
+                                format(field.value.from, "LLL dd, y", { locale: es })
+                              )
                             ) : (
-                              format(field.value.from, "LLL dd, y", { locale: es })
-                            )
-                          ) : (
-                            <span>Elige un rango de fechas</span>
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={field.value?.from}
-                          selected={{ from: field.value.from, to: field.value.to }}
-                          onSelect={field.onChange}
-                          numberOfMonths={2}
-                          disabled={(date) => date < new Date()}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
+                              <span>Elige un rango de fechas</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={field.value?.from}
+                            selected={{ from: field.value.from, to: field.value.to }}
+                            onSelect={field.onChange}
+                            numberOfMonths={2}
+                            disabled={(date) => date < new Date()}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {dateRange?.from && dateRange?.to && (
+                  <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground text-center">
+                    Total de días solicitados: <span className="font-bold text-foreground">{differenceInCalendarDays(dateRange.to, dateRange.from) + 1}</span>
+                  </div>
                 )}
-              />
+              </div>
             )}
           </div>
         );
